@@ -2,6 +2,7 @@ package io.javabrains.tinder_ai_backend.conversations;
 
 import io.javabrains.tinder_ai_backend.profiles.ProfileRepository;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,15 +28,44 @@ public class ConversationController {
     public Conversation createNewConversation(@RequestBody CreateConversationRequest request){
         System.out.println("hello");
         profileRepository.findById(request.profileId)
-                .orElseThrow(()->new ResponseStatusException(HttpStatus.NOT_FOUND));
+                .orElseThrow(()->new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Unable to find profile with Id "+request.profileId
+                ));
         Conversation conversation = new Conversation(
                 UUID.randomUUID().toString(),
                 request.profileId,
                 List.of(
-                        new ChatMessage("hello", request.profileId, LocalDateTime.now())
+//                        new ChatMessage("hello", request.profileId, LocalDateTime.now())
                 )
         );
 
+        conversationRepository.save(conversation);
+        return conversation;
+    }
+
+    @PostMapping("conversations/{conversationId}")
+    public Conversation addMessageToConversation(
+            @PathVariable String conversationId,
+            @RequestBody ChatMessage chatMessage
+    ){
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(()-> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Unable to find conversation with the ID "+ conversationId
+                ));
+        profileRepository.findById(chatMessage.authorId())
+                .orElseThrow(()-> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Unable to find a profile with ID "+chatMessage.authorId()
+                ));
+        ChatMessage chatMessageWithTime = new ChatMessage(
+            chatMessage.messageText(),
+            chatMessage.authorId(),
+            LocalDateTime.now()
+        );
+
+        conversation.message().add(chatMessageWithTime);
         conversationRepository.save(conversation);
         return conversation;
     }
